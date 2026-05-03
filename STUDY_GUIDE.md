@@ -77,6 +77,8 @@
 
 **Why session cookies (not JWTs):** Starlette's `SessionMiddleware` signs a small server-side payload with `SESSION_SECRET` and stores it as an opaque cookie. Logout is just `session.clear()` — instant revocation. JWTs would require a separate denylist.
 
+**Dev bypass (`DEV_AUTH_BYPASS`):** For local work without RC OAuth credentials, set `DEV_AUTH_BYPASS` to `1`, `true`, or `yes`. `auth.current_user` and `auth.require_user` then return a fixed stub user (optional `DEV_AUTH_BYPASS_NAME` for the label in the UI). No session token is created; RC API calls from OAuth are skipped. **Never set this in production** — it removes the gate entirely.
+
 **Why Authlib (not the official RC Python SDK):** The Stainless-generated SDK calls RC API endpoints once you have a token; it doesn't implement the redirect/state/callback flow a web app needs. Authlib does, natively for Starlette/FastAPI.
 
 **Required env vars:** `RC_CLIENT_ID`, `RC_CLIENT_SECRET`, `RC_REDIRECT_URI`, `SESSION_SECRET`. See `.env.example`.
