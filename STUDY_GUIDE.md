@@ -7,10 +7,11 @@
 
 ## How it works (high level)
 
-1. Web UI hits **`main.py`** (FastAPI, `/ask`).
-2. **`agent.py`** runs **`messages_for_agent(question)`** once immediately (real Zulip HTTP), injects that as the first tool round in the chat log, then loops: more optional searches via tools, then a **JSON answer** with **`section_1`–`section_3`**.
-3. **`zulip_search.py`** implements search and shapes each message for the model (including **sender** and **stream_id** when present). There is **no anonymization** in the pipeline (local/trusted use).
-4. **`db.py`** stores SQLite history.
+1. **`/`** and **`/pair`** serve **`static/pair.html`** (Pair with RCers). **`/zulip`** serves **`static/zulip.html`** (Ask Zulip form + past conversations). A shared **top nav** on both pages links between them (full page loads, no iframe). **`conversation.html`** “New question” links to **`/zulip`**.
+2. Web UI hits **`main.py`** (FastAPI, `/ask`).
+3. **`agent.py`** runs **`messages_for_agent(question)`** once immediately (real Zulip HTTP), injects that as the first tool round in the chat log, then loops: more optional searches via tools, then a **JSON answer** with **`section_1`–`section_3`**.
+4. **`zulip_search.py`** implements search and shapes each message for the model (including **sender** and **stream_id** when present). There is **no anonymization** in the pipeline (local/trusted use).
+5. **`db.py`** stores SQLite history.
 
 ## Key decisions and why
 
@@ -35,12 +36,59 @@
 - **`run.sh`** — **`install.sh`** if **`.venv`** is missing; loads **`.env`**; **`curl`** **`${OLLAMA_HOST:-http://127.0.0.1:11434}/api/tags`** and runs **`./Ollama.sh --ollama-only`** if that fails; **`exec`** **`main.py`** on **:8000**.
 - **`Ollama.sh`** — if **`ollama`** is not on **`PATH`**, runs **`setup_ollama.sh`** (when present). Then **`--ollama-only`** or full (Open WebUI). **`setup_ollama.sh`** — require Homebrew, then **`brew bundle`** (same **`Brewfile`** as **`install.sh --brew`**).
 
+## Pair page (`/`, `/pair`)
+
+**What it does:** Shows what RCers are currently working on (from their `#checkins` topic thread) grouped by topic, with one-click DM links and a copyable pairing message.
+
+**How it works:**
+1. `GET /api/checkin-pair` calls `checkin_fetch.build_grouped(zulip_site)`.
+2. `fetch_raw_checkins()` fetches up to 400 recent messages from the `#checkins` channel via Zulip API (no anonymization — real names and content are needed for the DM links and blurbs).
+3. Messages are sorted newest-first and `build_threads()` groups them by Zulip topic (`subject`). In this stream, each topic is the recurser's name, so each topic becomes one "person thread", capped at 75 newest threads.
+4. The thread owner is inferred by matching `sender_full_name` to the topic name. If no exact match is found, the newest message sender is used as a fallback DM target.
+5. The app keeps only messages authored by the inferred thread owner (the person whose topic it is). Replies from other people in that topic are excluded from classification.
+6. Owner-authored messages are combined, HTML is stripped, and a 200-char preview is built by `make_preview()`. This keeps richer context while avoiding "reply noise."
+7. `checkin_topics.classify()` matches the owner-only preview + topic subject against regex keyword buckets and returns all matches in bucket order. If nothing matches, it returns `["Other"]`.
+8. `dm_url()` constructs `{ZULIP_SITE}/#narrow/dm/{sender_id}` — opens a DM in the browser when the user is logged into Zulip.
+9. `checkin_near_url()` builds a **channel/topic/near/message** `#narrow` link from `stream_id`, `display_recipient` (stream name), topic subject, and the owner’s newest message `id` (Zulip’s `encode_hash_component` rules live in `encode_hash_component()`).
+10. Each API row includes **`avatar_url`** (from the anchor message) and **`checkin_url`** (empty if the Zulip payload lacks ids/stream info).
+11. `static/pair.html` renders a **responsive card grid** with avatars (or initials), section **emoji**, **Open check-in** + **Open DM**, and **Copy opener**. Bucket **Other** is always **last**; unknown bucket names sort just before Other.
+**Key decisions:**
+- **Keyword buckets over LLM clustering:** Fast, zero-cost, easy to tune. Trade-off: imprecise — "music" can contain keywords from other buckets, so regex uses `\b` word boundaries. LLM clustering would be more accurate but adds latency and cost.
+- **Multi-label classification (not first-match only):** One check-in can belong to several topics (for example Python + Cloud + DevOps), which improves pairing discovery for people doing cross-domain work. Trade-off: the same person can appear in multiple sections, so the UI can look more repetitive.
+- **Topic-thread aggregation over single-message dedupe:** We classify from the person's own updates in their check-in thread (topic) instead of one latest message. This improves signal when work spans several updates.
+- **Owner-only classification input:** Replies from other people in someone else's topic are ignored for categorization. This prevents cross-talk from mislabeling a person's interests. Trade-off: useful context from collaborators is not used.
+- **No anonymization:** This endpoint reveals real names and work topics. It's equivalent to browsing `#checkins` while logged in, but centralised. Do not expose the server without auth if deploying broadly.
+- **`sender_id` for DM links (not email):** Zulip's `/#narrow/dm/{id}` pattern works without knowing the user's email. It opens their DM thread in the org you're logged into.
+- **`ZULIP_CHECKIN_STREAM` env var:** Defaults to `"checkins"`. Swap it to `"alumni checkins"` or another stream without code changes.
+- **Batch scoping TBD:** The MVP uses anyone with a recent check-in. A future enhancement could filter by a Zulip user group (`ZULIP_BATCH_USER_GROUP_ID`) to show only current-batch members.
+## Authentication (RC OAuth)
+
+**What it does:** Gates the entire app behind Recurse Center login. Only RC members (current or alum) can use it. Unauthenticated visitors see a landing page.
+
+**How it works (the OAuth 2.0 authorization-code flow):**
+1. User hits `/`. `_serve_app_or_landing()` checks `request.session["user"]` — empty, so we serve `static/landing.html`.
+2. User clicks "Login with Recurse Center". `GET /login` calls Authlib's `oauth.recurse.authorize_redirect(...)`, which builds a URL like `https://www.recurse.com/oauth/authorize?client_id=...&redirect_uri=...&response_type=code&state=<random>` and stores `state` in the session (a CSRF guard).
+3. RC asks the user to grant permission, then redirects back to `/auth/callback?code=<short-lived>&state=<same>`.
+4. `auth_callback` calls `oauth.recurse.authorize_access_token(request)`, which validates `state`, POSTs `code` to `https://www.recurse.com/oauth/token`, and gets back `{access_token, refresh_token, expires_in: 7200, ...}`.
+5. We then `GET /api/v1/people/me` with the bearer token, store `{id, name, email, image_path}` in `session["user"]` and the full token dict in `session["token"]`, and redirect to `/`.
+6. On every protected route, the `require_user` dependency reads the session and calls `get_valid_token()`, which auto-refreshes when the access token has < 60s of life left.
+
+**Token refresh:** RC's refresh tokens are *single-use* — each refresh returns a new pair. `get_valid_token()` writes both new values back into the session. If RC rejects the refresh (`invalid_grant` — user revoked access, or refresh expired), we clear the session and return 401. Concurrent in-flight refreshes from the same browser would race and invalidate each other; acceptable for this app's traffic but worth knowing.
+
+**Why session cookies (not JWTs):** Starlette's `SessionMiddleware` signs a small server-side payload with `SESSION_SECRET` and stores it as an opaque cookie. Logout is just `session.clear()` — instant revocation. JWTs would require a separate denylist.
+
+**Why Authlib (not the official RC Python SDK):** The Stainless-generated SDK calls RC API endpoints once you have a token; it doesn't implement the redirect/state/callback flow a web app needs. Authlib does, natively for Starlette/FastAPI.
+
+**Required env vars:** `RC_CLIENT_ID`, `RC_CLIENT_SECRET`, `RC_REDIRECT_URI`, `SESSION_SECRET`. See `.env.example`.
+
 ## Things that don't work well
 
 - Small local models are weaker at tools/JSON than big cloud APIs.
 - Zulip recall depends on search quality and your query.
 - `OPENAI_BASE_URL` on localhost with Ollama down → failed requests until **`./Ollama.sh`**, the desktop app, or **`ollama serve`** is running.
 - Zulip credentials are real secrets; the model sees real names and message text.
+- OAuth refresh-token races: with single-use refresh tokens, two concurrent expired-token requests from the same session can invalidate each other and force a re-login. No locking is implemented because traffic is one-user-clicking-around.
+- `RC_REDIRECT_URI` must match the redirect URI registered on recurse.com *exactly* (scheme, host, port, path). Mismatches surface as opaque OAuth errors.
 
 ## Key metrics and results
 
