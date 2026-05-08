@@ -98,3 +98,32 @@
 
 - No fixed benchmark in the repo.
 - **Latency** and **quality** depend on hardware, `OPENAI_MODEL`, and how much Zulip context you pass in.
+
+## Deployment (Disco)
+
+### What changes for Disco
+
+- Disco expects two repo-root files: `disco.json` and `Dockerfile`.
+- `disco.json` tells Disco which service port the app listens on (`8080`).
+- The container starts `uvicorn` directly on `0.0.0.0:8080` so traffic from the Disco reverse proxy can reach it.
+
+### Production OAuth setup (RC login)
+
+- Keep using the same RC OAuth flow (`/login` -> `/auth/callback`), but update env values for the deployed domain.
+- Register `https://<your-domain>/auth/callback` in RC app settings and set `RC_REDIRECT_URI` to the exact same value.
+- Set `SESSION_COOKIE_SECURE=true` in production so the browser only sends session cookies over HTTPS.
+- Keep `DEV_AUTH_BYPASS=0` (or unset) in production. Think of this like "leave the side door locked."
+
+### LLM setup in containers
+
+- Local default is `OPENAI_BASE_URL=http://localhost:11434/v1` (Ollama).
+- In Disco, `localhost` usually points to the app container itself, not your laptop.
+- For production, point `OPENAI_BASE_URL`, `OPENAI_API_KEY`, and `OPENAI_MODEL` to a reachable API endpoint.
+- Analogy: local Ollama is like a printer plugged into your desk; production needs a network printer everyone can reach.
+
+### Data persistence tradeoff
+
+- Conversations are saved in `conversations.db` (SQLite file in the working directory).
+- If container storage is ephemeral, redeploys can wipe that file.
+- This is simple and fast for MVPs, but weak for long-term history.
+- Better long-term option: attach persistent storage (if available) or move to a managed database.
