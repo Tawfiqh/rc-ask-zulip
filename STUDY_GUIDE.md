@@ -102,6 +102,36 @@
 - OAuth refresh-token races: with single-use refresh tokens, two concurrent expired-token requests from the same session can invalidate each other and force a re-login. No locking is implemented because traffic is one-user-clicking-around.
 - `RC_REDIRECT_URI` must match the redirect URI registered on recurse.com *exactly* (scheme, host, port, path). Mismatches surface as opaque OAuth errors.
 
+## Screenshots and sample data
+
+Real Zulip check-ins contain real RCer names, photos, and messages, so we
+keep them out of the screenshots that ship with the repo.
+
+- Sample fixtures live in [`samples/`](samples/) and sample avatars in
+  [`static/sample/avatars/`](static/sample/avatars/).
+- Setting `USE_SAMPLE_DATA=1` makes four endpoints (`/api/checkin-pair`,
+  `/conversations`, `/conversation-data/{id}`, `/ask`) read those JSON
+  fixtures instead of touching Zulip, the LLM, or the SQLite DB.
+- `DEV_AUTH_BYPASS=1` lets the app skip RC OAuth.
+
+To capture a fresh set of screenshots:
+
+```bash
+DEV_AUTH_BYPASS=1 USE_SAMPLE_DATA=1 ./run.sh --no-ollama
+# Web pages: open in Chrome and `screencapture -w` (or use the browser MCP).
+#   http://127.0.0.1:8000/                       → Pair with RCers
+#   http://127.0.0.1:8000/zulip                  → Ask Zulip form + past list
+#   http://127.0.0.1:8000/conversation?id=1      → sample answer with citations
+
+# TUI (separate terminal, server still running)
+cd Rc-Checkins-TUI/rcAskZulip
+npm install && npm run build
+node dist/cli.js
+# screencapture -i ~/Desktop/tui.png             # interactive region capture
+```
+
+Outputs go in [`Docs/screenshots/`](Docs/screenshots/).
+
 ## Key metrics and results
 
 - No fixed benchmark in the repo.

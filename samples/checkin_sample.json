@@ -1,0 +1,100 @@
+{
+  "AI": [
+    {
+      "name": "Ada Lovelace",
+      "user_id": 1001,
+      "timestamp": 1746792000,
+      "topic_subject": "Ada — week 4",
+      "preview": "Spent the morning reading the Llama 3 paper and reproducing the rotary positional embedding math by hand. This afternoon I want to pair on a tiny GPT to make sure I really get attention.",
+      "avatar_url": "/static/sample/avatars/ada.svg",
+      "checkin_url": "https://example.com/zulip/checkin/ada",
+      "dm_url": "https://example.com/zulip/dm/ada",
+      "suggested_message": "Hey Ada! Saw your check-in about reproducing rotary positional embeddings — I have been wanting to dig into that too. Want to pair on a tiny GPT this afternoon?"
+    },
+    {
+      "name": "Grace Hopper",
+      "user_id": 1002,
+      "timestamp": 1746788400,
+      "topic_subject": "Grace — week 2",
+      "preview": "Building an evals harness for a small RAG project. Today: write a regression test that catches when retrieval starts pulling the wrong section headings.",
+      "avatar_url": "/static/sample/avatars/grace.svg",
+      "checkin_url": "https://example.com/zulip/checkin/grace",
+      "dm_url": "https://example.com/zulip/dm/grace",
+      "suggested_message": "Hi Grace! Loved your check-in about RAG evals — I’m fighting the same retrieval-drift problem. Coffee chat sometime this week?"
+    }
+  ],
+  "Rust": [
+    {
+      "name": "Linus T.",
+      "user_id": 1003,
+      "timestamp": 1746784800,
+      "topic_subject": "Linus — week 6",
+      "preview": "Porting a small game-of-life from C to Rust to learn ownership. Today’s yak: figuring out why my borrow checker is unhappy with a callback in winit.",
+      "avatar_url": "/static/sample/avatars/linus.svg",
+      "checkin_url": "https://example.com/zulip/checkin/linus",
+      "dm_url": "https://example.com/zulip/dm/linus",
+      "suggested_message": "Hey Linus! I have battled the same winit closure-borrow issue — happy to pair if you want a second pair of eyes."
+    },
+    {
+      "name": "Margaret H.",
+      "user_id": 1004,
+      "timestamp": 1746781200,
+      "topic_subject": "Margaret — week 3",
+      "preview": "Started writing a tiny embedded-style allocator in Rust to learn unsafe. Plan: read Phil Opp’s blog OS posts and steal his bump allocator.",
+      "avatar_url": "/static/sample/avatars/margaret.svg",
+      "checkin_url": "https://example.com/zulip/checkin/margaret",
+      "dm_url": "https://example.com/zulip/dm/margaret",
+      "suggested_message": "Hi Margaret! I am also working through Phil Opp’s OS series — would love to swap notes on the bump allocator section."
+    }
+  ],
+  "Web": [
+    {
+      "name": "Tim B-L.",
+      "user_id": 1005,
+      "timestamp": 1746777600,
+      "topic_subject": "Tim — week 1",
+      "preview": "First week! Building a personal site without a framework — just plain HTML, CSS, and a sprinkle of JS. Today: get view transitions working between pages.",
+      "avatar_url": "/static/sample/avatars/tim.svg",
+      "checkin_url": "https://example.com/zulip/checkin/tim",
+      "dm_url": "https://example.com/zulip/dm/tim",
+      "suggested_message": "Welcome Tim! View Transitions is a fun rabbit hole — I have a tiny demo with same-document transitions, happy to share."
+    },
+    {
+      "name": "Radia P.",
+      "user_id": 1006,
+      "timestamp": 1746774000,
+      "topic_subject": "Radia — week 5",
+      "preview": "Hacking on a self-hosted RSS reader. Today: deduplicate items across feeds that re-publish the same post under different GUIDs.",
+      "avatar_url": "/static/sample/avatars/radia.svg",
+      "checkin_url": "https://example.com/zulip/checkin/radia",
+      "dm_url": "https://example.com/zulip/dm/radia",
+      "suggested_message": "Hi Radia! I went down the same dedup rabbit hole — ended up using a SimHash on the title + first paragraph. Want to compare notes?"
+    }
+  ],
+  "Music": [
+    {
+      "name": "Hedy L.",
+      "user_id": 1007,
+      "timestamp": 1746770400,
+      "topic_subject": "Hedy — week 4",
+      "preview": "Writing a tiny step sequencer in Web Audio. Today’s goal: get swing timing to feel right (currently sounds robotic).",
+      "avatar_url": "/static/sample/avatars/hedy.svg",
+      "checkin_url": "https://example.com/zulip/checkin/hedy",
+      "dm_url": "https://example.com/zulip/dm/hedy",
+      "suggested_message": "Hey Hedy! Web Audio + groove is one of my favourite things — happy to swap the swing-timing tricks I’ve picked up."
+    }
+  ],
+  "Other": [
+    {
+      "name": "Edsger D.",
+      "user_id": 1008,
+      "timestamp": 1746766800,
+      "topic_subject": "Edsger — week 7",
+      "preview": "Giving a talk on Friday about why I think property-based tests beat example tests for parser code. Today: building the slide deck and a short live demo.",
+      "avatar_url": "/static/sample/avatars/edsger.svg",
+      "checkin_url": "https://example.com/zulip/checkin/edsger",
+      "dm_url": "https://example.com/zulip/dm/edsger",
+      "suggested_message": "Hi Edsger! Looking forward to the talk Friday — would you want a dry run with someone who has been writing PBTs for parsers?"
+    }
+  ]
+}

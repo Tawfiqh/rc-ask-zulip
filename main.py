@@ -1,7 +1,10 @@
 import asyncio
+import json
 import logging
 import os
 from contextlib import asynccontextmanager
+from functools import lru_cache
+from pathlib import Path
 
 import httpx
 import uvicorn
@@ -21,6 +24,19 @@ from llm_client import assert_not_blocked_provider, configured_base_url
 
 load_dotenv()
 
+
+SAMPLES_DIR = Path(__file__).parent / "samples"
+
+
+def _use_sample_data() -> bool:
+    return os.environ.get("USE_SAMPLE_DATA", "").strip().lower() in ("1", "true", "yes")
+
+
+@lru_cache(maxsize=8)
+def _load_sample(filename: str) -> object:
+    with open(SAMPLES_DIR / filename) as f:
+        return json.load(f)
+
 _log_level_name = os.getenv("LOG_LEVEL", "INFO").upper()
 _log_level = getattr(logging, _log_level_name, None)
 if not isinstance(_log_level, int):
@@ -35,6 +51,12 @@ logging.basicConfig(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if _use_sample_data():
+        # Skip LLM and Zulip background work entirely so the app runs offline.
+        logging.getLogger(__name__).info("USE_SAMPLE_DATA=1 — serving fixtures")
+        yield
+        return
+
     # Fail fast if OPENAI_BASE_URL points at a blocked provider (OpenAI,
     # Anthropic, Google Gemini). Other endpoints are fine.
     base_url = configured_base_url()
@@ -61,7 +83,8 @@ app.add_middleware(
 )
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-db.init_db()
+if not _use_sample_data():
+    db.init_db()
 
 
 def _render_page(filename: str, user: dict | None) -> str:
@@ -145,6 +168,8 @@ def logout(request: Request):
 
 @app.get("/ask")
 def ask(q: str, user: dict = Depends(require_user)):
+    if _use_sample_data():
+        return _load_sample("conversation_sample.json")
     try:
         messages, final_answer = run_agent(q)
     except AgentAnswerError as e:
@@ -155,6 +180,11 @@ def ask(q: str, user: dict = Depends(require_user)):
 
 @app.get("/api/checkin-pair")
 def checkin_pair(user: dict = Depends(require_user)):
+    if _use_sample_data():
+        return {
+            "grouped": _load_sample("checkin_sample.json"),
+            "generated_at": "2026-05-09T18:00:00",
+        }
     snap = db.get_snapshot()
     if snap is None:
         # First-ever boot before the background job has produced a snapshot:
@@ -167,11 +197,15 @@ def checkin_pair(user: dict = Depends(require_user)):
 
 @app.get("/conversations")
 def conversations(user: dict = Depends(require_user)):
+    if _use_sample_data():
+        return _load_sample("conversations_list_sample.json")
     return db.list_conversations()
 
 
 @app.get("/conversation-data/{conv_id}")
 def conversation_data(conv_id: int, user: dict = Depends(require_user)):
+    if _use_sample_data():
+        return _load_sample("conversation_sample.json")
     row = db.get_conversation(conv_id)
     if row is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
